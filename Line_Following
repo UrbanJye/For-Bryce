@@ -1,0 +1,122 @@
+from machine import Pin, ADC
+from motor import Motor
+from time import sleep
+
+motor_left = Motor("left", 8, 9, 6)
+motor_right = Motor("right", 10, 11, 7)
+R = ADC(Pin(26))  # Right Sensor
+M = ADC(Pin(27))  # Middle Sensor
+L = ADC(Pin(28))  # Left Sensor
+x0 = (-15)
+x1 = 0
+x2 = 15
+NR = 0
+NM = 0
+NL = 0
+line_dist = []
+while True:
+    NR = R.read_u16()
+    NM = M.read_u16()
+    NL = L.read_u16()
+
+    numerator = (NR * x0 + NM * x1 + NL * x2)
+    denominator = (NR + NM + NL)
+
+
+    def generate_array():
+        line_dist.append(numerator / denominator)
+        return line_dist
+
+
+    def extract_value_before(array, target_range_start, target_range_end):
+        previous_value = None
+        last_previous_value = None
+        for value in array:
+            if target_range_start <= value <= target_range_end:
+                break
+            if previous_value is not None:
+                last_previous_value = previous_value
+            previous_value = value
+            print("Previous value:", previous_value)
+        return last_previous_value
+
+
+    line_array = generate_array()
+    range_start = 0.4
+    range_end = 0.92
+    last_previous_value = extract_value_before(line_array, range_start, range_end)
+    print("Last Value:", last_previous_value)
+    last = (len(line_dist) - 1)
+    line_error = 0 - line_dist[last]
+    KP = 1.5
+    avg_pwm = 45
+    left_pwm = avg_pwm - KP * line_error
+    right_pwm = avg_pwm + KP * line_error
+    print("{:3d}, {:4d}, {:4d}, {:3.2f}".format(NR, NM, NL, line_dist[last]))
+    sleep(0.1)
+    if -0.7 <= line_dist[last] <= 0.7:
+        motor_right.control(1, round(right_pwm))
+        motor_left.control(1, round(left_pwm))
+        sleep(0.2)
+        print("Straight")
+        motor_right.control(1, 0)
+        motor_left.control(1, 0)
+        sleep(0.2)
+    elif -3 <= line_dist[last] < -0.7:
+        motor_right.control(1, round(right_pwm))
+        motor_left.control(1, round(left_pwm))
+        sleep(0.2)
+        motor_right.control(1, 0)
+        motor_left.control(1, 0)
+        sleep(0.2)
+        print("Turn Slightly Right")
+    elif -6 <= line_dist[last] < -3:
+        motor_right.control(1, round(right_pwm))
+        motor_left.control(1, round(left_pwm))
+        sleep(0.2)
+        motor_right.control(1, 0)
+        motor_left.control(1, 0)
+        print("Turn Right")
+        sleep(0.2)
+    elif -13 < line_dist[last] < -6:
+        motor_right.control(1, round(right_pwm))
+        motor_left.control(1, round(left_pwm))
+        sleep(0.2)
+        motor_right.control(1, 0)
+        motor_left.control(1, 0)
+        sleep(0.2)
+        print("Turn Hard Right")
+    elif 3 >= line_dist[last] > 0.7:
+        motor_right.control(1, round(right_pwm))
+        motor_left.control(1, round(left_pwm))
+        sleep(0.2)
+        motor_right.control(1, 0)
+        motor_left.control(1, 0)
+        sleep(0.2)
+        print("Turn Slightly Left")
+    elif 6 >= line_dist[last] > 3:
+        motor_right.control(1, round(right_pwm))
+        motor_left.control(1, round(left_pwm))
+        sleep(0.2)
+        motor_right.control(1, 0)
+        motor_left.control(1, 0)
+        sleep(0.2)
+        print("Turn Left")
+    elif 13 >= line_dist[last] > 6:
+        motor_right.control(1, round(right_pwm))
+        motor_left.control(1, round(left_pwm))
+        sleep(0.2)
+        motor_right.control(1, 0)
+        motor_left.control(1, 0)
+        sleep(0.2)
+        print("Turn Hard Left")
+    elif 2500 >= NM >= 2200 and last_previous_value in range(-1, -20):
+        motor_right.control(1, 40)
+        motor_left.control(1, 80)
+        sleep(0.15)
+        print("Finding Line Left Side")
+    elif 2500 >= NM >= 2200 and last_previous_value in range(1, 20):
+        motor_right.control(1, 80)
+        motor_left.control(1, 40)
+        sleep(0.15)
+        print("Finding Line Right Side")
